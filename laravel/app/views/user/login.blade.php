@@ -7,38 +7,29 @@
 	</head>
 	<body>
 		<div class="container">
-			<nav class="navbar navbar-inverse">
-				<div class="navbar-header">
-					<a class="navbar-brand" href="{{ URL::to('user')}}">User Alert</a>
-				</div>
-				
-				<ul class="nav navbar-nav">
-					<li><a href="{{ URL::to('user')}}">View All Users</a></li>
-					<li><a href="{{ URL::to('user/login')}}">Login</a></li>
-				</ul>
-			</nav>
-			
 			<h1>Login</h1>
 			<!-- Display any form errors if any. -->
 			{{ HTML::ul($errors->all()) }}
 			
 			{{ Form::open(array('url' => 'user')) }}
 				<div class="form-group">
-					{{ Form::label('first_name', 'First Name') }}
-					{{ Form::text('first_name', Input::old('first_name'), array('class' => 'form-control')) }}
-				</div>
-				
-				<div class="form-group">
-					{{ Form::label('last_name', 'Last Name') }}
-					{{ Form::text('last_name', Input::old('last_name'), array('class' => 'form-control')) }}
-				</div>
-				
-				<div class="form-group">
 					{{ Form::label('email', 'Email') }}
 					{{ Form::email('email', Input::old('email'), array('class' => 'form-control')) }}
 				</div>
-				{{ Form::submit('Login!', array('class' => 'btn btn-primary')) }}
+				{{ Form::submit('Login', array('class' => 'btn btn-primary')) }}
 			{{ Form::close() }}
+			
+			<br />
+			- OR -
+			<br /><br />
+			
+			<div class="form-group">
+				<label>Log in with one of the social network buttons below:</label>
+			</div>
+			<a class="btn btn-lg btn-primary" href="{{url('user/social')}}">
+				<i class="icon-facebook"></i>
+				Login with Facebook
+			</a>
 		</div>
 	</body>
 </html>

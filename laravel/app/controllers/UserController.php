@@ -13,32 +13,56 @@ class UserController extends \BaseController {
 	 */
 	public function index()
 	{
-		// Get all of the users.
-		$objUsers = User::all();
 		
-		// Load the view and pass the users
-		return View::make('user.index')
-			->with('user', $objUsers);
 	}
 
 	/**
-	 * Show the form for creating a new resource.
-	 *
+	 * The welcome page after a user logs in.
+	 * 
+	 * @access public
+	 * 
 	 * @return Response
 	 */
-	public function create()
+	public function welcome()
 	{
-		//
+		// Check to see if the user has a login session.
+		if (Auth::check())
+		{
+			return View::make('user.welcome')
+				->with('user', Auth::user());
+		} else {
+			return Redirect::to('/user/login');
+		}
 	}
 	
 	/**
 	 * Allows the user to log in via Facebook.
 	 * 
+	 * @access public
+	 * 
 	 * @return Response
 	 */
 	public function login()
 	{
-		return View::make('user.login');
+		if (Auth::check())
+		{
+			return Redirect::to('/user/welcome');
+		} else {
+			return View::make('user.login');
+		}
+	}
+	
+	/**
+	 * Logs a user out of the system.
+	 * 
+	 * @access public
+	 * 
+	 * @return Response
+	 */
+	public function logout()
+	{
+		Auth::logout();
+		return Redirect::to('user/login');
 	}
 	
 	/**
@@ -62,15 +86,9 @@ class UserController extends \BaseController {
 	 */
 	public function store()
 	{
-		// Validate the form input.
-		$arrRules = array(
-			'first_name'	=> 'required|alpha',
-			'last_name'		=> 'required|alpha',
-			'email'			=> 'required|email'
-		);
-		
 		// Validate the form input using the static method: make(). Also, pass
 		// in the validation rules for the form input.
+		$arrRules = array('email' => 'required|email');
 		$objValidator = Validator::make(Input::all(), $arrRules);
 		
 		if ($objValidator->fails())
@@ -78,6 +96,87 @@ class UserController extends \BaseController {
 			return Redirect::to('user/login')
 				->withErrors($objValidator)
 				->withInput(Input::except('password'));
+		} else {
+			// Validate the user's credentials.
+			$strEmail = Input::get('email');
+			$objUser = User::where('email', '=', $strEmail)->first();
+			
+			// Check if the user exists.
+			if (!empty($objUser) && isset($objUser->exists) && $objUser->exists)
+			{
+				Auth::login($objUser);
+				return Redirect::to('/user/welcome')->with('message', 'Logged in via login form.');
+			} else {
+				return Redirect::to('/user/login')
+					->withInput(Input::except('password'))
+					->with('message', 'Error loggin in');
+			}
+		}
+	}
+	
+	public function social()
+	{
+		if (isset($_GET['code']))
+		{
+			$strCode = trim($_GET['code']);
+			
+		    try {
+				// Grab the facebook App ID and Secret from its config file.
+				$objProvider = OAuth2::provider(
+					'Facebook',
+					array(
+						'id'		=> Config::get('facebook.id'),
+						'secret'	=> Config::get('facebook.secret')
+					)
+				);
+				
+				$objParams = $objProvider->access($strCode);
+                $objToken = new Token_Access(array(
+                    'access_token' => $objParams->access_token
+                ));
+                $arrUser = $objProvider->get_user_info($objToken);
+				
+				// Check if the uid is exists.
+				if ($arrUser['uid'] == 0)
+				{
+					return View::make('user.login')
+						->with('message', 'There was an error logging you in.');
+				}
+				
+				// Check to see if the profile exists.
+				$objProfile = Profile::where('uid', '=', $arrUser['uid'])->first();
+				
+				// User does not exist.
+				if (empty($objProfile))
+				{
+					// Create the user.
+					$objUser = new User();
+					$objUser->first_name = $arrUser['first_name'];
+					$objUser->last_name = $arrUser['last_name'];
+					$objUser->email = $arrUser['email'];
+					$objUser->save();
+					
+					// Create the user's profile.
+					$objProfile = new Profile();
+					$objProfile->uid = $arrUser['uid'];
+					$objProfile->username = $arrUser['nickname'];
+					$objCreateProfile = $objUser->profiles()->save($objProfile);
+				}
+				
+				// Update the user's access token.
+				$objProfile->access_token = $objParams->access_token;
+				$objProfile->save();
+				
+				$objUser = $objProfile->user;
+				
+				// Facebook login is valid.  Authenticate and redirect to the
+				// appropriate page.
+				Auth::login($objUser);
+				
+				return Redirect::to('/user/welcome')->with('message', 'Logged in via Facebook.');
+		    } catch (OAuth2_Exception $exception) {
+		        show_error('That didnt work: '. $exception);
+		    }
 		} else {
 			// Grab the facebook App ID and Secret from its config file.
 			$objProvider = OAuth2::provider(
@@ -88,69 +187,7 @@ class UserController extends \BaseController {
 				)
 			);
 			
-			if (!isset($_GET['code']))
-			{
-			    // By sending no options it'll come back here.
-			    return $objProvider->authorize();
-			} else {
-			    try {
-			        $arrParams = $objProvider->access($_GET['code']);
-					printArray($arrParams);exit;
-					$token = new Token_Access(
-						array('access_token' => $params->access_token)
-					);
-					
-					$objUser = $provider->get_user_info($token);
-					$this->_printArray($objUser);
-			    } catch (OAuth2_Exception $exception) {
-			        show_error('That didnt work: '. $exception);
-			    }
-			}
+			return $objProvider->authorize();
 		}
 	}
-
-	/**
-	 * Display the specified resource.
-	 *
-	 * @param  int  $id
-	 * @return Response
-	 */
-	public function show($id)
-	{
-		//
-	}
-
-	/**
-	 * Show the form for editing the specified resource.
-	 *
-	 * @param  int  $id
-	 * @return Response
-	 */
-	public function edit($id)
-	{
-		//
-	}
-
-	/**
-	 * Update the specified resource in storage.
-	 *
-	 * @param  int  $id
-	 * @return Response
-	 */
-	public function update($id)
-	{
-		//
-	}
-
-	/**
-	 * Remove the specified resource from storage.
-	 *
-	 * @param  int  $id
-	 * @return Response
-	 */
-	public function destroy($id)
-	{
-		//
-	}
-
 }

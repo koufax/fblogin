@@ -16,6 +16,8 @@ Route::get('/', function()
 	return View::make('hello');
 });
 
-Route::get('user?code=', 'UserController@login');
+Route::get('user/social', 'UserController@social');
+Route::get('user/welcome', 'UserController@welcome');
 Route::get('user/login', 'UserController@login');
+Route::get('user/logout', 'UserController@logout');
 Route::resource('user', 'UserController');
